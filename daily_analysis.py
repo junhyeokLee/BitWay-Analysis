@@ -171,7 +171,7 @@ def detect_pattern_enhanced(highs, lows):
         return "none"
 
 # Firestore 초기화
-cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-3db339356a.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
