@@ -23,7 +23,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Create Firebase service account key
-        run: echo "$GCP_CREDENTIALS_JSON" > bitway-key.json
+        run: echo "$GCP_CREDENTIALS_JSON" > bitway-b9001-firebase-adminsdk-fbsvc-3db339356a.json
         env:
           GCP_CREDENTIALS_JSON: ${{ secrets.GCP_CREDENTIALS_JSON }}
 
