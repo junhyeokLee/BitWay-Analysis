@@ -2,8 +2,8 @@ name: Daily HOT Coin Analysis
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 매일 오전 10시 (KST)
-  workflow_dispatch:     # 수동 실행도 가능
+    - cron: '0 1 * * *'  # 오전 10시 KST
+  workflow_dispatch:
 
 jobs:
   run-analysis:
@@ -21,9 +21,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Create Firebase Service Account JSON
-        run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > firebase_key.json
+      - name: Decode firebase_key.json from base64
+        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > firebase_key.json
 
       - name: Run analysis script
         run: python daily_analysis2.py
