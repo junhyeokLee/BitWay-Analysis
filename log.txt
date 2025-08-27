@@ -1,0 +1,204 @@
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
+Traceback (most recent call last):
+  File "/Users/junhyeok_sport2i/PycharmProjects/bit_way/daily_analysis.py", line 174, in <module>
+    cred = credentials.Certificate("bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
+  File "/Users/junhyeok_sport2i/anaconda3/envs/bit_way/lib/python3.10/site-packages/firebase_admin/credentials.py", line 97, in __init__
+    with open(cert) as json_file:
+FileNotFoundError: [Errno 2] No such file or directory: 'bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json'
