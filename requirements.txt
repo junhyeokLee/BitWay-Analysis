@@ -2,3 +2,4 @@ requests
 pandas
 numpy
 firebase-admin
+python-dotenv
