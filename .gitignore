@@ -1,2 +1,13 @@
 *.json
 .env
+# secrets
+.env
+*.env
+*.json
+# IDE
+.idea/
+*.iml
+# build
+.venv/
+.dart_tool/
+build/
