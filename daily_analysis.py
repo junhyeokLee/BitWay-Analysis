@@ -404,11 +404,10 @@ def detect_pattern_enhanced(highs, lows):
     else:
         return "none"
 
-# Firestore 초기화
-cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "bitway-b9001-firebase-adminsdk-fbsvc-d35dc62d4f.json")
-if not firebase_admin._apps:
-    cred = credentials.Certificate(cred_path)
-    firebase_admin.initialize_app(cred)
+ # 0) Firestore 초기화 ─ 서비스 계정 JSON 경로 수정
+ # ────────────────────────────────────────────────
+ cred = credentials.Certificate("firebase_key.json")
+ firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 def analyze_volume(df):
