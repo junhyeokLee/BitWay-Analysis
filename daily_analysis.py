@@ -406,8 +406,8 @@ def detect_pattern_enhanced(highs, lows):
 
  # 0) Firestore 초기화 ─ 서비스 계정 JSON 경로 수정
  # ────────────────────────────────────────────────
- cred = credentials.Certificate("firebase_key.json")
- firebase_admin.initialize_app(cred)
+cred = credentials.Certificate("firebase_key.json")
+firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 def analyze_volume(df):
