@@ -25,6 +25,6 @@ jobs:
         run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > firebase_key.json
 
       - name: Run analysis script
-        run: python daily_analysis2.py
+        run: python daily_analysis.py
         env:
           GOOGLE_APPLICATION_CREDENTIALS: firebase_key.json
