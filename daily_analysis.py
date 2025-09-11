@@ -110,9 +110,9 @@ from firebase_admin import credentials, firestore
 from datetime import datetime, timedelta
 import os  # 환경변수로 API 키 관리
 import json  # JSON 파싱/검증용
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from datetime import timezone
-load_dotenv()
+# load_dotenv()
 
 # 본 스크립트는 KST 기준 하루 1회, 업비트 거래대금/규칙점수 기반으로 추천 코인을 선택하고 저장합니다.
 
@@ -286,6 +286,14 @@ def calculate_macd(prices, short=12, long=26, signal=9):
 
 # 패턴 감지 (고급)
 def detect_pattern_enhanced(highs, lows):
+    # 한국어 주석: 캔들 수가 부족하면(예: 신규 상장/데이터 적음) 패턴 감지를 건너뛰고 'none' 반환
+    try:
+        if highs is None or lows is None:
+            return "none"
+        if len(highs) < 20 or len(lows) < 20:
+            return "none"
+    except Exception:
+        return "none"
     recent_highs = highs[-20:].to_numpy()
     recent_lows = lows[-20:].to_numpy()
 
@@ -482,6 +490,147 @@ def compute_change_metrics(df):
         "atr14": round(float(atr14), 4),
         "vol_z": round(float(vol_z), 2),
         "last_close": float(s_close.iloc[-1])
+    }
+
+# ======================= 시각화용 타임시리즈 유틸 =======================
+
+def _macd_series(prices, short=12, long=26, signal=9):
+    """MACD 전체 시리즈(라인/시그널)"""
+    short_ema = prices.ewm(span=short, adjust=False).mean()
+    long_ema  = prices.ewm(span=long,  adjust=False).mean()
+    macd = short_ema - long_ema
+    sig  = macd.ewm(span=signal, adjust=False).mean()
+    return macd, sig
+
+def build_viz_timeseries(df, limit=120):
+    """
+    프론트 시각화를 위한 지표 타임시리즈 묶음 생성
+    반환: {dates, rsi, macd, macdSignal, volume, atr14, pctb, obv, mfi14}
+    """
+    if df is None or len(df) < 2:
+        return {}
+    d = df.tail(limit).reset_index(drop=True).copy()
+    s_close = d["close"].astype(float)
+    s_high  = d["high"].astype(float)
+    s_low   = d["low"].astype(float)
+    s_vol   = d["volume"].astype(float)
+
+    # RSI(14)
+    # rsi_series = calculate_rsi_series(s_close, period=14).fillna(method="bfill").fillna(50)
+    rsi_series = calculate_rsi_series(s_close, period=14).bfill().fillna(50)
+
+    # MACD
+    macd_line, macd_sig = _macd_series(s_close)
+
+    # ATR(14)
+    trs = [np.nan]
+    for i in range(1, len(d)):
+        trs.append(max(s_high.iloc[i]-s_low.iloc[i], abs(s_high.iloc[i]-s_close.iloc[i-1]), abs(s_low.iloc[i]-s_close.iloc[i-1])))
+    atr14 = pd.Series(trs).rolling(14).mean()
+
+    # Bollinger %b
+    win = 20 if len(s_close) >= 20 else len(s_close)
+    ma20 = s_close.rolling(win).mean()
+    sd20 = s_close.rolling(win).std()
+    upper = ma20 + 2*sd20
+    lower = ma20 - 2*sd20
+    rng = (upper - lower).replace(0, np.nan)
+    pctb = ((s_close - lower) / (rng + 1e-8)).clip(0, 1)
+
+    # OBV / MFI(14)
+    obv = (np.sign(s_close.diff().fillna(0)) * s_vol).cumsum()
+    tp = (s_high + s_low + s_close) / 3.0
+    raw_money = tp * s_vol
+    pos_flow = np.where(tp.diff() > 0, raw_money, 0.0)
+    neg_flow = np.where(tp.diff() < 0, raw_money, 0.0)
+    mfi = 100 - (100 / (1 + (pd.Series(pos_flow).rolling(14).sum() / (pd.Series(neg_flow).rolling(14).sum() + 1e-8))))
+
+    return {
+        "dates": d["date"].astype(str).tolist(),
+        "rsi": rsi_series.round(2).tolist(),
+        "macd": macd_line.round(5).fillna(0).tolist(),
+        "macdSignal": macd_sig.round(5).fillna(0).tolist(),
+        "volume": s_vol.round(4).tolist(),
+        "atr14": atr14.round(6).fillna(0).tolist(),
+        "pctb": pctb.round(4).fillna(0.5).tolist(),
+        "obv": pd.Series(obv).round(4).fillna(0).tolist(),
+        "mfi14": pd.Series(mfi).round(2).fillna(50).tolist(),
+    }
+
+# ======================= /시각화용 타임시리즈 유틸 끝 =======================
+
+# === 시각화 확장: 지지/저항/트리거/타깃/EMA/BB/히트 ===
+def build_viz_plus(df, k=0.3, target_atr=1.0, lookback=120):
+    """
+    한글 주석:
+    - 과거 각 시점의 support/resistance(20D), ATR14로 bull/bear 트리거/타깃 시계열 생성
+    - EMA12/26, Bollinger 상/하단도 함께 제공
+    - backtest 윈도우 기준 hitBull/hitBear 플래그(0/1) 시각화용 생성
+    """
+    if df is None or len(df) < 30:
+        return {}
+    d = df.copy().reset_index(drop=True)
+    s_o, s_h, s_l, s_c, s_v = [d[x].astype(float) for x in ["open","high","low","close","volume"]]
+
+    # EMA12/26
+    ema12 = s_c.ewm(span=12, adjust=False).mean()
+    ema26 = s_c.ewm(span=26, adjust=False).mean()
+
+    # BB(20)
+    win = 20 if len(s_c) >= 20 else len(s_c)
+    ma20 = s_c.rolling(win).mean()
+    sd20 = s_c.rolling(win).std()
+    bb_upper = ma20 + 2*sd20
+    bb_lower = ma20 - 2*sd20
+
+    # 롤링 S/R(20) + ATR14
+    lows = s_l.rolling(20).min().shift(1)
+    highs = s_h.rolling(20).max().shift(1)
+    trs = [np.nan]
+    for i in range(1, len(d)):
+        trs.append(max(s_h.iloc[i]-s_l.iloc[i], abs(s_h.iloc[i]-s_c.iloc[i-1]), abs(s_l.iloc[i]-s_c.iloc[i-1])))
+    atr14 = pd.Series(trs).rolling(14).mean()
+
+    bull_trg = highs + k*atr14
+    bear_trg = lows  - k*atr14
+    bull_tgt = bull_trg + target_atr*atr14
+    bear_tgt = bear_trg - target_atr*atr14
+
+    # 백테스트 윈도우(환경변수) hit 플래그 (미래 봉 참조)
+    horizon = BT_HORIZON_DAYS
+    hit_bull = [0]*len(d)
+    hit_bear = [0]*len(d)
+    last_i = len(d) - horizon - 1
+    for i in range(25, last_i):
+        if any(np.isnan([bull_trg.iloc[i], bear_trg.iloc[i], atr14.iloc[i]])):
+            continue
+        hi = float(s_h.iloc[i+1:i+1+horizon].max())
+        lo = float(s_l.iloc[i+1:i+1+horizon].min())
+        if hi >= float(bull_tgt.iloc[i]): hit_bull[i] = 1
+        if lo <= float(bear_tgt.iloc[i]): hit_bear[i] = 1
+
+    # tail(lookback)만 반환 (프론트 렌더 최적화)
+    t = -lookback if len(d) > lookback else 0
+    def _lst(x):
+        return (
+            x.iloc[t:]
+            .round(6)
+            .bfill()
+            .ffill()
+            .replace([np.inf, -np.inf], np.nan)
+            .fillna(0)
+            .tolist()
+        )
+
+    return {
+        "dates": d["date"].astype(str).iloc[t:].tolist(),
+        "ema12": _lst(ema12), "ema26": _lst(ema26),
+        "bbUpper": _lst(bb_upper), "bbLower": _lst(bb_lower),
+        "support20": _lst(lows), "resistance20": _lst(highs),
+        "bullTrigger": _lst(bull_trg), "bearTrigger": _lst(bear_trg),
+        "bullTarget": _lst(bull_tgt), "bearTarget": _lst(bear_tgt),
+        "hitBull": hit_bull[t:] if t != 0 else hit_bull,
+        "hitBear": hit_bear[t:] if t != 0 else hit_bear,
     }
 
 # ======================= 고급 지표/다이버전스/점수 유틸 =======================
@@ -834,6 +983,198 @@ def backtest_auto_triggers(df, k=0.3, horizon_days=3, target_atr=1.0):
         "samples": n
     }
 
+def _wilson_interval(p, n, z=1.96):
+    if n == 0:
+        return (None, None)
+    phat = max(0.0, min(1.0, p))
+    denom = 1 + z*z/n
+    centre = phat + z*z/(2*n)
+    margin = z*np.sqrt((phat*(1-phat)+z*z/(4*n))/n)
+    lower = (centre - margin)/denom
+    upper = (centre + margin)/denom
+    return (round(lower*100, 2), round(upper*100, 2))
+
+def compute_backtest_detailed(df, k=0.3, horizon_days=3, target_atr=1.0):
+    """
+    레짐(저/중/고)별 적중률과 Wilson 95% CI, 시각화용 시리즈를 함께 반환
+    반환:
+      overall: {hitRate_bull, hitRate_bear, hitRate_any, samples, ci_any: [lo,hi]}
+      byRegime: {저변동|중간|고변동: {...}}
+      series: {index:[], bullHit:[], bearHit:[], bullTrigger:[], bearTrigger:[]}
+    """
+    if len(df) < 25:
+        return {"overall": {"hitRate_bull": None, "hitRate_bear": None, "hitRate_any": None, "samples": 0, "ci_any": [None, None]},
+                "byRegime": {}, "series": {}}
+    s_close = df["close"].astype(float).reset_index(drop=True)
+    s_high  = df["high"].astype(float).reset_index(drop=True)
+    s_low   = df["low"].astype(float).reset_index(drop=True)
+
+    sup_sr, res_sr = _rolling_support_resistance(df, window=20)
+    trs = [np.nan]
+    for i in range(1, len(df)):
+        trs.append(max(df["high"].iloc[i]-df["low"].iloc[i], abs(df["high"].iloc[i]-df["close"].iloc[i-1]), abs(df["low"].iloc[i]-df["close"].iloc[i-1])))
+    atr14_sr = pd.Series(trs).rolling(14).mean().reset_index(drop=True)
+
+    price_sr = s_close
+    vr = (atr14_sr / (price_sr + 1e-8)).fillna(0)
+    def _regime(v):
+        return "고변동" if v >= 0.08 else ("중간" if v >= 0.04 else "저변동")
+
+    bulls=bears=either=n=0
+    by = {"저변동": {"bull":0,"bear":0,"either":0,"n":0},
+          "중간":   {"bull":0,"bear":0,"either":0,"n":0},
+          "고변동": {"bull":0,"bear":0,"either":0,"n":0}}
+    ser_idx=[]; ser_bull=[]; ser_bear=[]; ser_bt=[]; ser_brt=[]
+
+    last_i = len(df) - horizon_days - 1
+    for i in range(25, last_i):
+        sup = sup_sr.iloc[i]; res = res_sr.iloc[i]; atr = atr14_sr.iloc[i]
+        if np.isnan(sup) or np.isnan(res) or np.isnan(atr) or atr <= 0:
+            continue
+        bull_trigger = res + k * atr
+        bear_trigger = sup - k * atr
+        bull_target = bull_trigger + target_atr * atr
+        bear_target = bear_trigger - target_atr * atr
+        hi = float(s_high.iloc[i+1:i+1+horizon_days].max()) if i+1 < len(df) else np.nan
+        lo = float(s_low.iloc[i+1:i+1+horizon_days].min()) if i+1 < len(df) else np.nan
+        hit_bull = (not np.isnan(hi)) and (hi >= bull_target)
+        hit_bear = (not np.isnan(lo)) and (lo <= bear_target)
+
+        reg = _regime(vr.iloc[i] if i < len(vr) else 0)
+        by[reg]["n"] += 1
+        by[reg]["either"] += 1 if (hit_bull or hit_bear) else 0
+        by[reg]["bull"] += 1 if hit_bull else 0
+        by[reg]["bear"] += 1 if hit_bear else 0
+
+        n += 1; either += 1 if (hit_bull or hit_bear) else 0
+        bulls += 1 if hit_bull else 0
+        bears += 1 if hit_bear else 0
+
+        ser_idx.append(i)
+        ser_bull.append(1 if hit_bull else 0)
+        ser_bear.append(1 if hit_bear else 0)
+        ser_bt.append(round(float(bull_trigger), 6))
+        ser_brt.append(round(float(bear_trigger), 6))
+
+    overall = {"hitRate_bull": round(bulls/max(1,n)*100.0,2),
+               "hitRate_bear": round(bears/max(1,n)*100.0,2),
+               "hitRate_any": round(either/max(1,n)*100.0,2),
+               "samples": n}
+    lo, hi = _wilson_interval(either/max(1,n), n) if n>0 else (None,None)
+    overall["ci_any"] = [lo, hi]
+
+    by_out = {}
+    for kreg, v in by.items():
+        if v["n"] == 0: continue
+        p_any = v["either"]/v["n"]
+        lo2, hi2 = _wilson_interval(p_any, v["n"]) if v["n"]>0 else (None, None)
+        by_out[kreg] = {"hitRate_bull": round(v["bull"]/v["n"]*100.0,2),
+                        "hitRate_bear": round(v["bear"]/v["n"]*100.0,2),
+                        "hitRate_any": round(p_any*100.0,2),
+                        "samples": v["n"],
+                        "ci_any": [lo2, hi2]}
+
+    return {"overall": overall,
+            "byRegime": by_out,
+            "series": {"index": ser_idx, "bullHit": ser_bull, "bearHit": ser_bear,
+                       "bullTrigger": ser_bt, "bearTrigger": ser_brt}}
+
+def backtest_trades(df, k=0.3, horizon_days=3, target_atr=1.0, fee_bps=10):
+    """
+    한글 주석: 각 시점에서 상/하방 트리거를 가정한 간단 트레이드 리스트 생성
+    - 목표/손절/타임아웃 규칙으로 청산하여 retPct/MAE/MFE/보유기간 기록
+    - 수수료 왕복 fee_bps(기본 10bp=0.10%) 반영
+    반환: {trades:[], equityCurve:{dates, equity}, stats:{winRate, avgWinPct, avgLossPct, expPct, profitFactor, maxDDPct}}
+    """
+    if df is None or len(df) < 30:
+        return {"trades": [], "equityCurve": {"dates": [], "equity": []}, "stats": {}}
+
+    d = df.reset_index(drop=True).copy()
+    s_h = d["high"].astype(float); s_l = d["low"].astype(float); s_c = d["close"].astype(float)
+
+    lows = d["low"].astype(float).rolling(20).min().shift(1)
+    highs = d["high"].astype(float).rolling(20).max().shift(1)
+    trs = [np.nan]
+    for i in range(1, len(d)):
+        trs.append(max(d["high"].iloc[i]-d["low"].iloc[i], abs(d["high"].iloc[i]-d["close"].iloc[i-1]), abs(d["low"].iloc[i]-d["close"].iloc[i-1])))
+    atr14 = pd.Series(trs).rolling(14).mean()
+
+    trades = []
+    eq = [1.0]
+    eq_dates = [d["date"].iloc[0]]
+    fee = fee_bps/10000.0
+
+    last_i = len(d) - horizon_days - 1
+    for i in range(25, last_i):
+        sup = float(lows.iloc[i]) if not np.isnan(lows.iloc[i]) else None
+        res = float(highs.iloc[i]) if not np.isnan(highs.iloc[i]) else None
+        atr = float(atr14.iloc[i]) if not np.isnan(atr14.iloc[i]) else None
+        if sup is None or res is None or atr is None or atr <= 0:
+            continue
+        entry = float(s_c.iloc[i])
+        bull_trigger = res + k*atr
+        bear_trigger = sup - k*atr
+        bull_target = bull_trigger + target_atr*atr
+        bear_target = bear_trigger - target_atr*atr
+        hi = float(s_h.iloc[i+1:i+1+horizon_days].max())
+        lo = float(s_l.iloc[i+1:i+1+horizon_days].min())
+
+        def _simulate(direction):
+            if direction == "bull":
+                hit_target = hi >= bull_target
+                hit_stop   = lo <= bear_trigger
+                reason = "timeout"; exitp = float(s_c.iloc[i+horizon_days])
+                if hit_target: reason = "target"; exitp = bull_target
+                elif hit_stop: reason = "stop";   exitp = bear_trigger
+                ret = (exitp/entry - 1) - 2*fee
+                mfe = (max(hi, entry)/entry - 1) if entry>0 else 0.0
+                mae = (min(lo, entry)/entry - 1) if entry>0 else 0.0
+                return ret*100.0, reason, mfe*100.0, mae*100.0
+            else:
+                hit_target = lo <= bear_target
+                hit_stop   = hi >= bull_trigger
+                reason = "timeout"; exitp = float(s_c.iloc[i+horizon_days])
+                if hit_target: reason = "target"; exitp = bear_target
+                elif hit_stop: reason = "stop";   exitp = bull_trigger
+                ret = (entry/exitp - 1) - 2*fee
+                mfe = (entry/min(lo, entry) - 1) if entry>0 else 0.0
+                mae = (entry/max(hi, entry) - 1) if entry>0 else 0.0
+                return ret*100.0, reason, mfe*100.0, mae*100.0
+
+        for direction in ("bull","bear"):
+            retPct, reason, mfePct, maePct = _simulate(direction)
+            trades.append({
+                "date": d["date"].iloc[i],
+                "direction": direction,
+                "entry": round(entry, 6),
+                "retPct": round(retPct, 2),
+                "holdDays": horizon_days,
+                "reason": reason,
+                "mfePct": round(mfePct, 2),
+                "maePct": round(maePct, 2),
+            })
+            eq.append(eq[-1]*(1 + retPct/100.0))
+            eq_dates.append(d["date"].iloc[i+horizon_days])
+
+    wins = [t for t in trades if t["retPct"] > 0]
+    losses = [t for t in trades if t["retPct"] <= 0]
+    winRate = round(len(wins)/max(1,len(trades))*100.0, 2) if trades else None
+    avgWin = round(np.mean([t["retPct"] for t in wins]), 2) if wins else None
+    avgLoss = round(np.mean([t["retPct"] for t in losses]), 2) if losses else None
+    expPct = round(np.mean([t["retPct"] for t in trades]), 2) if trades else None
+    pf = round(abs((np.sum([t["retPct"] for t in wins]) / (np.sum([abs(t['retPct']) for t in losses]) + 1e-8))), 2) if losses else None
+    cur_max = -1e9; dd = []
+    for val in eq:
+        cur_max = max(cur_max, val)
+        dd.append((val/cur_max - 1))
+    maxDDPct = round(min(dd)*100.0, 2) if dd else None
+
+    stats = {"winRate": winRate, "avgWinPct": avgWin, "avgLossPct": avgLoss,
+             "expPct": expPct, "profitFactor": pf, "maxDDPct": maxDDPct}
+    return {"trades": trades,
+            "equityCurve": {"dates": eq_dates, "equity": [round(x,6) for x in eq]},
+            "stats": stats}
+
 def compute_timeframe_conflict(features):
     """
     한글 주석: 데일리(ema_cross)와 주간(weekly_trend)의 방향이 충돌하면 True
@@ -958,7 +1299,9 @@ def compute_trend_regression(df, window=20):
     ss_res = np.sum((y - y_hat) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2) + 1e-8
     r2 = 1 - ss_res / ss_tot
-    slope_pct_per_day = (m / (y[-1] + 1e-8)) * 100.0
+    # slope_pct_per_day = (m / (y[-1] + 1e-8)) * 100.0
+    base = y[-1] if (len(y) and not np.isnan(y[-1]) and y[-1] != 0) else 1.0
+    slope_pct_per_day = (m / (base + 1e-8)) * 100.0
     return {"trend_slope_pct_per_day": round(float(slope_pct_per_day), 4),
             "trend_r2": round(float(max(0.0, min(1.0, r2))), 4)}
 
@@ -988,15 +1331,10 @@ def compute_weekly_trend(df):
     tmp = df.copy()
     # 한글 주석: 날짜를 KST로 로컬라이즈하여 주간 경계를 한국 시간 기준으로 맞춘다
     tmp["date_dt"] = pd.to_datetime(tmp["date"])
-    # tz-aware로 변환 (KST)
-    try:
+    if tmp["date_dt"].dt.tz is None:
         tmp["date_dt"] = tmp["date_dt"].dt.tz_localize("Asia/Seoul")
-    except Exception:
-        # 이미 tz-aware이거나 기타 예외 시, 강제 변환 시도
-        if tmp["date_dt"].dt.tz is None:
-            tmp["date_dt"] = tmp["date_dt"].dt.tz_localize("Asia/Seoul")
-        else:
-            tmp["date_dt"] = tmp["date_dt"].dt.tz_convert("Asia/Seoul")
+    else:
+        tmp["date_dt"] = tmp["date_dt"].dt.tz_convert("Asia/Seoul")
     tmp = tmp.set_index("date_dt").sort_index()
     wk = tmp["close"].astype(float).resample("W-SUN").last()  # KST 기준 주간(일요일 종료)
     if len(wk) < 28:
@@ -1076,6 +1414,22 @@ def validate_ai_json_against_schema(ai_json):
         else:
             if c < 0 or c > 100: errs.append("confidence must be 0..100")
 
+    # 선택(옵션) 필드 타입 점검 (있으면 타입만 확인)
+    if "confidenceDrivers" in ai_json and not isinstance(ai_json.get("confidenceDrivers"), list):
+        errs.append("confidenceDrivers must be list")
+    if "unknowns_or_gaps" in ai_json and not isinstance(ai_json.get("unknowns_or_gaps"), list):
+        errs.append("unknowns_or_gaps must be list")
+    if "regime_breakdown" in ai_json and not isinstance(ai_json.get("regime_breakdown"), dict):
+        errs.append("regime_breakdown must be object")
+    if "liquidity" in ai_json and not isinstance(ai_json.get("liquidity"), dict):
+        errs.append("liquidity must be object")
+    if "risk_model" in ai_json and not isinstance(ai_json.get("risk_model"), dict):
+        errs.append("risk_model must be object")
+    if "scenarios" in ai_json and isinstance(ai_json.get("scenarios"), dict):
+        det = ai_json["scenarios"].get("detail")
+        if det is not None and not isinstance(det, list):
+            errs.append("scenarios.detail must be list")
+
     return (len(errs) == 0), errs
 
 def _repair_ai_json_with_defaults(ai_json, features):
@@ -1124,7 +1478,7 @@ def _repair_ai_json_via_model(prompt, ai_json, errors):
 # ======================= /AI JSON 검증/수정 유틸 끝 =======================
 
 
-def build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, features, auto_triggers, scores, backtest, prompt_version="v2"):
+def build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, features, auto_triggers, scores, backtest, prompt_version="v2", symbol=None):
     change = compute_change_metrics(df)
     recent = df[["date", "open", "high", "low", "close", "volume"]].tail(7).to_dict("records")
     pattern_text = pattern if pattern and pattern != "none" else "감지됨 없음"
@@ -1141,7 +1495,7 @@ def build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, feature
         "content": {
             "task": "하루 요약 리포트(JSON만 반환)",
             "promptVersion": prompt_version,
-            "symbol": f"{sel_symbol}/KRW",
+            "symbol": f"{(symbol or 'SYMBOL')}/KRW",
             "core_metrics": {
                 "last_close": change["last_close"],
                 "d1_return_pct": change["d1_return_pct"],
@@ -1167,10 +1521,16 @@ def build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, feature
                 "interpretation": ["string"],
                 "scenarios": {
                     "bull": {"trigger": "string", "invalidate": "string"},
-                    "bear": {"trigger": "string", "invalidate": "string"}
+                    "bear": {"trigger": "string", "invalidate": "string"},
+                    "detail": ["string"]
                 },
                 "risks": ["string"],
-                "confidence": "integer"
+                "confidence": "integer",
+                "confidenceDrivers": ["string"],
+                "unknowns_or_gaps": ["string"],
+                "regime_breakdown": {"vol": "string", "bb_pctile_120d": "number"},
+                "liquidity": {"turnover24hKrw": "number", "minTurnoverKrw": "number", "liquidityOk": "boolean"},
+                "risk_model": {"expected_pullback_pct": "number", "stop_atr": "number", "drawdown_hint": "string"}
             },
             "style_guidelines": [
                 "과장, 확정 표현 금지", "숫자·임계값을 명시", "모호한 표현 지양"
@@ -1227,7 +1587,8 @@ def _call_openai_chat(prompt):
         return None
 
 
-def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
+# def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
+def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment, symbol):
     """
     한글 주석: JSON 기반 AI 분석(→ 스키마/일관성 검증 → 필요 시 모델 기반 수정)
     실패 시 규칙 기반 폴백.
@@ -1237,10 +1598,23 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
     features = compute_advanced_features_v2(df)
     scores = compute_rule_based_scores(features, rsi_value=rsi)
     k_env = K_TRIGGER
-    backtest = backtest_auto_triggers(df, k=k_env, horizon_days=BT_HORIZON_DAYS, target_atr=BT_TARGET_ATR)
+    # backtest = backtest_auto_triggers(df, k=k_env, horizon_days=BT_HORIZON_DAYS, target_atr=BT_TARGET_ATR)
+    backtest = compute_backtest_detailed(df, k=k_env, horizon_days=BT_HORIZON_DAYS, target_atr=BT_TARGET_ATR)
     auto_triggers = compute_auto_triggers(features, k=k_env)
-
-    prompt = build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, features, auto_triggers, scores, backtest, prompt_version="v2")
+    viz = build_viz_timeseries(df, limit=120)
+    # 추가 산출물(시계열/트레이드/레벨)
+    viz_plus = build_viz_plus(df, k=k_env, target_atr=BT_TARGET_ATR, lookback=120)
+    bt_trd = backtest_trades(df, k=k_env, horizon_days=BT_HORIZON_DAYS, target_atr=BT_TARGET_ATR)
+    levels_today = {
+        "support": features.get("support_20d"),
+        "resistance": features.get("resistance_20d"),
+        "bullTrigger": auto_triggers.get("bull_trigger"),
+        "bearTrigger": auto_triggers.get("bear_trigger"),
+        "bullTarget": (auto_triggers.get("bull_trigger") + BT_TARGET_ATR*features.get("atr14", 0.0)) if features.get("atr14") else None,
+        "bearTarget": (auto_triggers.get("bear_trigger") - BT_TARGET_ATR*features.get("atr14", 0.0)) if features.get("atr14") else None,
+    }
+    # prompt = build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, features, auto_triggers, scores, backtest, prompt_version="v2")
+    prompt = build_ai_prompt(df, rsi, macd, macd_signal, pattern, volume_comment, features, auto_triggers, scores, backtest, prompt_version="v2", symbol=symbol)
 
     # 1) OpenAI 호출 + 레이턴시 측정
     t0 = datetime.now()
@@ -1279,7 +1653,8 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
             rsi_zone = "중립"
         macd_dir = "상승" if macd > macd_signal else "하락"
         vol_simple = (volume_comment or "").split(".")[0].strip() or "거래량 변화 정보 부족"
-        symbol_for_easy = sel_symbol if 'sel_symbol' in globals() else "SYMBOL"
+        # symbol_for_easy = sel_symbol if 'sel_symbol' in globals() else "SYMBOL"
+        symbol_for_easy = symbol or "SYMBOL"
         if not ai_json.get("easy_summary"):
             ai_json["easy_summary"] = (
                 f"현재 {symbol_for_easy}은 {regime_for_easy} 시장에 있으며, RSI {round(rsi,1)}로 {rsi_zone} 구간입니다. "
@@ -1301,22 +1676,38 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
 
     # 3) 실패 시 규칙 기반 폴백
     if not ai_json:
-        pattern_comment = "명확한 패턴 없음" if (not pattern or pattern == "none") else f"'{pattern}' 패턴 감지"
-        text = (
-            f"시장 요약: RSI {rsi}, MACD {macd} / 시그널 {macd_signal}. {pattern_comment}.\n"
-            f"레짐: {features.get('vol_regime')} (ATR/가격 {features.get('vol_regime_ratio')})\n"
-            f"지지/저항(20D): {features.get('support_20d')} / {features.get('resistance_20d')}\n"
-            f"볼린저 위치: {features.get('bb_pos_pct')}%, 모멘텀(7/14/28일): {features.get('mom7_pct')}% / {features.get('mom14_pct')}% / {features.get('mom28_pct')}%\n"
-            f"거래량 코멘트: {volume_comment}\n"
-            f"자동 트리거: 상방 {auto_triggers['bull_trigger']} / 하방 {auto_triggers['bear_trigger']}\n"
-            f"백테스트(최근): 상방 적중 {backtest.get('hitRate_bull')}%, 하방 적중 {backtest.get('hitRate_bear')}% (표본 {backtest.get('samples')}건)\n"
-            "- 체크포인트: 변동성/거래량 흐름, EMA 크로스 상태, ADX/DI, MFI/OBV"
+        ov = (backtest or {}).get("overall", {})
+        # 백슬래시가 들어가는 중첩 f-string을 피하기 위해, 패턴 문구를 먼저 만든다.
+        pattern_phrase = "명확한 패턴 없음" if (not pattern or pattern == "none") else f"'{pattern}' 패턴 감지"
+        # 문단을 줄단위로 구성 (각 줄은 단일 f-string)
+        line1 = f"시장 요약: RSI {rsi}, MACD {macd} / 시그널 {macd_signal}. {pattern_phrase}."
+        line2 = f"레짐: {features.get('vol_regime')} (ATR/가격 {features.get('vol_regime_ratio')})"
+        line3 = f"지지/저항(20D): {features.get('support_20d')} / {features.get('resistance_20d')}"
+        line4 = (
+            f"볼린저 위치: {features.get('bb_pos_pct')}%, 모멘텀(7/14/28일): "
+            f"{features.get('mom7_pct')}% / {features.get('mom14_pct')}% / {features.get('mom28_pct')}%"
         )
+        line5 = f"거래량 코멘트: {volume_comment}"
+        line6 = f"자동 트리거: 상방 {auto_triggers['bull_trigger']} / 하방 {auto_triggers['bear_trigger']}"
+        line7 = (
+            f"백테스트(최근): 상방 적중 {ov.get('hitRate_bull')}%, 하방 적중 {ov.get('hitRate_bear')}%, "
+            f"어느 한쪽 {ov.get('hitRate_any')}% (표본 {ov.get('samples')})"
+        )
+        text = "\n".join([
+            line1,
+            line2,
+            line3,
+            line4,
+            line5,
+            line6,
+            line7,
+            "- 체크포인트: 변동성/거래량 흐름, EMA 크로스 상태, ADX/DI, MFI/OBV",
+        ])
         disclaimer = "\n\n※ 본 내용은 정보 제공 목적이며, 투자 조언이 아닙니다."
 
         # 규칙기반 JSON 백업도 함께 생성하여 null 저장을 방지
         fallback_json, fallback_headline = _build_rule_based_ai_json(
-            symbol=sel_symbol, rsi=rsi, macd=macd, macd_signal=macd_signal,
+            symbol=symbol, rsi=rsi, macd=macd, macd_signal=macd_signal,
             pattern=pattern, volume_comment=volume_comment,
             features=features, scores=scores, triggers=auto_triggers,
         )
@@ -1333,6 +1724,13 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
             "kTrigger": k_env,
             "btHorizonDays": BT_HORIZON_DAYS,
             "btTargetAtr": BT_TARGET_ATR,
+            "indicatorsLast": {"rsi": rsi, "macd": macd, "macdSignal": macd_signal},
+            "viz": viz,
+            "vizPlus": viz_plus,
+            "btTrades": bt_trd.get("trades"),
+            "equityCurve": bt_trd.get("equityCurve"),
+            "btStats": bt_trd.get("stats"),
+            "levelsToday": levels_today,
         }
         try:
             print("[save.debug] headline=", fallback_json.get('headline'))
@@ -1375,8 +1773,15 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
         for r in risks: lines.append(f"- {r}")
     if conf is not None:
         lines.append(f"**확신도**: {conf}/100")
-    if backtest and backtest.get("samples", 0) > 0:
-        lines.append(f"**백테스트(참고)**: 상방 {backtest.get('hitRate_bull')}% / 하방 {backtest.get('hitRate_bear')}% (표본 {backtest.get('samples')}건)")
+    if backtest and isinstance(backtest, dict) and backtest.get("overall", {}).get("samples", 0) > 0:
+        ov = backtest["overall"]
+        lines.append(
+            f"**백테스트(전체)**: 상방 {ov.get('hitRate_bull')}% / 하방 {ov.get('hitRate_bear')}% / 어느 한쪽 {ov.get('hitRate_any')}% (n={ov.get('samples')}, 95%CI {ov.get('ci_any')})")
+        br = backtest.get("byRegime", {})
+        for key in ["저변동", "중간", "고변동"]:
+            if key in br:
+                rr = br[key]
+                lines.append(f"- {key}: any {rr.get('hitRate_any')}% (n={rr.get('samples')}, CI {rr.get('ci_any')})")
 
     disclaimer = "※ 본 내용은 정보 제공 목적이며, 투자 조언이 아닙니다."
     text = "\n".join(lines + ["", disclaimer]).strip()
@@ -1393,6 +1798,13 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
         "kTrigger": k_env,
         "btHorizonDays": BT_HORIZON_DAYS,
         "btTargetAtr": BT_TARGET_ATR,
+        "indicatorsLast": {"rsi": rsi, "macd": macd, "macdSignal": macd_signal},
+        "viz": viz,
+        "vizPlus": viz_plus,
+        "btTrades": bt_trd.get("trades"),
+        "equityCurve": bt_trd.get("equityCurve"),
+        "btStats": bt_trd.get("stats"),
+        "levelsToday": levels_today,
     }
     try:
         print(f"AI provider used: {provider}, latency={latency_ms}ms")
@@ -1400,99 +1812,104 @@ def generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment):
         pass
     return text, ai_json, meta
 
-r_df = None
-# === 오늘의 심볼 결정 (KST, 하루 1개 고정) ===
-sel_symbol = select_daily_symbol_kst(kst_today_str())
+# === 오늘의 DAILY PICK (업비트 기준, 1개 심층 분석/저장) ===
+# 한국어 주석:
+# - 정책 변경: '하루 5개'가 아닌, '하루 1개(심층)'로 저장합니다.
+# - 선정 규칙: select_daily_symbol_kst(date_str) 로 일자별 1개 심볼 동결.
+# - 저장 포맷(필드/문서키)은 기존과 동일: HOT_{심볼}_{YYYY-MM-DD}
 
-# 분석 및 저장 실행 (선정된 심볼)
-df = fetch_upbit_daily_candles(f"KRW-{sel_symbol}", 200)
-rsi = calculate_rsi(df["close"])
-macd, macd_signal = calculate_macd(df["close"])
-pattern = detect_pattern_enhanced(df["high"], df["low"])
-volume_comment = analyze_volume(df)
+try:
+    today_kst = kst_today_str()
+    sel_symbol = select_daily_symbol_kst(today_kst) or HOT_SYMBOL_ENV
+    print(f"[HOT1] Daily Pick(KST {today_kst}): {sel_symbol}")
 
-# RSI 해석 문장
-if rsi < 30:
-    rsi_comment = f"RSI가 {rsi}로 과매도 구간에 진입해 반등 가능성이 있습니다."
-elif rsi > 70:
-    rsi_comment = f"RSI가 {rsi}로 과매수 구간에 위치해 조정 가능성이 있습니다."
-else:
-    rsi_comment = f"RSI는 {rsi}로 중립 구간입니다."
+    df = fetch_upbit_daily_candles(f"KRW-{sel_symbol}", 200)
+    rsi = calculate_rsi(df["close"])
+    macd, macd_signal = calculate_macd(df["close"])
+    pattern = detect_pattern_enhanced(df["high"], df["low"])  # 데이터 부족 시 'none'
+    volume_comment = analyze_volume(df)
 
-# MACD 해석 문장
-if macd > macd_signal:
-    macd_comment = f"MACD({macd})가 시그널선({macd_signal}) 위로 돌파하여 상승세로의 전환 신호입니다."
-else:
-    macd_comment = f"MACD({macd})가 시그널선({macd_signal}) 아래로 유지되며 하락세 지속 가능성을 시사합니다."
+    # RSI/MACD 해석
+    if rsi < 30:
+        rsi_comment = f"RSI가 {rsi}로 과매도 구간에 진입해 반등 가능성이 있습니다."
+    elif rsi > 70:
+        rsi_comment = f"RSI가 {rsi}로 과매수 구간에 위치해 조정 가능성이 있습니다."
+    else:
+        rsi_comment = f"RSI는 {rsi}로 중립 구간입니다."
+    macd_comment = (f"MACD({macd})가 시그널선({macd_signal}) 위로 돌파하여 상승 전환 신호입니다." if macd > macd_signal
+                    else f"MACD({macd})가 시그널선({macd_signal}) 아래로 유지되며 하락 지속 가능성을 시사합니다.")
 
-# 패턴별 해석 사전
-pattern_explanations = {
-    "하락 쐐기형": "통상 하락세에서 나타나며 이후 반등 가능성을 시사합니다.",
-    "상승 쐐기형": "상승세에서 나타나며 이후 가격 조정 가능성을 시사합니다.",
-    "대칭 삼각형": "변동성 축소 후 방향성 돌파가 예상됩니다.",
-    "이중 천장": "고점 부근에서의 하락 반전 가능성을 나타냅니다.",
-    "이중 바닥": "저점 부근에서의 상승 반전 가능성을 나타냅니다.",
-    "헤드 앤 숄더": "상승세 이후 하락 반전의 대표적인 신호입니다.",
-    "삼중 천장": "고점에서의 강한 하락 반전 가능성을 나타냅니다.",
-    "삼중 바닥": "저점에서의 강한 반등 신호로 해석될 수 있습니다.",
-    "플래그 패턴": "단기 조정 이후 기존 추세 지속 가능성이 높습니다.",
-    "페넌트 패턴": "가격 조정 이후 추세 지속 가능성을 나타냅니다.",
-    "상승 삼각형": "상승 돌파 가능성이 높은 패턴입니다.",
-    "하락 삼각형": "하락 돌파 가능성이 높은 패턴입니다.",
-    "박스권": "횡보장이 지속될 가능성을 나타냅니다.",
-    "컵 앤 핸들": "상승 돌파 가능성을 가지는 중장기 강세 패턴입니다.",
-}
+    pattern_explanations = {
+        "하락 쐐기형": "통상 하락세에서 나타나며 이후 반등 가능성을 시사합니다.",
+        "상승 쐐기형": "상승세에서 나타나며 이후 가격 조정 가능성을 시사합니다.",
+        "대칭 삼각형": "변동성 축소 후 방향성 돌파가 예상됩니다.",
+        "이중 천장": "고점 부근에서의 하락 반전 가능성을 나타냅니다.",
+        "이중 바닥": "저점 부근에서의 상승 반전 가능성을 나타냅니다.",
+        "헤드 앤 숄더": "상승세 이후 하락 반전의 대표적인 신호입니다.",
+        "삼중 천장": "고점에서의 강한 하락 반전 가능성을 나타냅니다.",
+        "삼중 바닥": "저점에서의 강한 반등 신호로 해석될 수 있습니다.",
+        "플래그 패턴": "단기 조정 이후 기존 추세 지속 가능성이 높습니다.",
+        "페넌트 패턴": "가격 조정 이후 추세 지속 가능성을 나타냅니다.",
+        "상승 삼각형": "상승 돌파 가능성이 높은 패턴입니다.",
+        "하락 삼각형": "하락 돌파 가능성이 높은 패턴입니다.",
+        "박스권": "횡보장이 지속될 가능성을 나타냅니다.",
+        "컵 앤 핸들": "상승 돌파 가능성을 가지는 중장기 강세 패턴입니다.",
+    }
+    pattern_comment = (f"현재 '{pattern}' 패턴이 감지되었습니다. {pattern_explanations.get(pattern, '기술적 해석이 제공되지 않았습니다.')}"
+                       if pattern != "none" else "현재 명확한 차트 패턴은 감지되지 않았습니다.")
 
-if pattern != "none":
-    explanation = pattern_explanations.get(pattern, "기술적 해석이 제공되지 않았습니다.")
-    pattern_comment = f"현재 '{pattern}' 패턴이 감지되었습니다. {explanation}"
-else:
-    pattern_comment = "현재 명확한 차트 패턴은 감지되지 않았습니다."
+    summary = f"{rsi_comment} {macd_comment} {pattern_comment} {volume_comment}"
 
-# 통합 요약
-summary = f"{rsi_comment} {macd_comment} {pattern_comment} {volume_comment}"
+    print("=== DEBUG: Inputs for generate_ai_summary ===")
+    print("symbol:", sel_symbol)
+    print("df.tail():\n", df.tail())
+    print("rsi:", rsi)
+    print("macd:", macd)
+    print("macd_signal:", macd_signal)
+    print("pattern:", pattern)
+    print("volume_comment:", volume_comment)
+    print("=============================================")
 
-# === DEBUG: Inputs for generate_ai_summary ===
-print("=== DEBUG: Inputs for generate_ai_summary ===")
-print("symbol:", sel_symbol)
-print("df.tail():\n", df.tail())
-print("rsi:", rsi)
-print("macd:", macd)
-print("macd_signal:", macd_signal)
-print("pattern:", pattern)
-print("volume_comment:", volume_comment)
-print("=============================================")
-ai_summary_text, ai_summary_json, ai_meta = generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment)
+    # ai_summary_text, ai_summary_json, ai_meta = generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment)
+    ai_summary_text, ai_summary_json, ai_meta = generate_ai_summary(df, rsi, macd, macd_signal, pattern, volume_comment,sel_symbol)
 
-doc_id = f"{HOT_PREFIX}_{sel_symbol}_{kst_today_str()}"
-data = {
-    "symbol": sel_symbol,
-    "market": f"KRW-{sel_symbol}",
-    "date": kst_today_str(),
-    "rsi": rsi,
-    "macd": macd,
-    "macdSignal": macd_signal,
-    "pattern": pattern,
-    "summary": summary,
-    "aiSummary": ai_summary_text,
-    "aiSummaryJson": ai_summary_json,
-    "premiumOnly": False,
-    "isDailyPick": True,
-    "chartData": df.to_dict(orient="records"),
-    # --- 추가 메타/지표 저장 ---
-    "aiSummaryScores": ai_meta.get("ruleScores") if ai_meta else None,
-    "autoTriggers": ai_meta.get("autoTriggers") if ai_meta else None,
-    "promptVersion": ai_meta.get("promptVersion") if ai_meta else "v2",
-    "provider": ai_meta.get("provider") if ai_meta else None,
-    "modelName": ai_meta.get("modelName") if ai_meta else None,
-    "latencyMs": ai_meta.get("latencyMs") if ai_meta else None,
-    "validationErrors": ai_meta.get("validationErrors") if ai_meta else [],
-    "features": ai_meta.get("features") if ai_meta else None,
-    "backtest": ai_meta.get("backtest") if ai_meta else None,
-    "kTrigger": ai_meta.get("kTrigger") if ai_meta else None,
-    "btHorizonDays": ai_meta.get("btHorizonDays") if ai_meta else None,
-    "btTargetAtr": ai_meta.get("btTargetAtr") if ai_meta else None,
-}
-
-db.collection("daily_analysis").document(doc_id).set(data)
-print(f"✅ Firestore 저장 완료: {doc_id} (collection: daily_analysis, symbol={sel_symbol})")
+    doc_id = f"{HOT_PREFIX}_{sel_symbol}_{today_kst}"
+    data = {
+        "symbol": sel_symbol,
+        "market": f"KRW-{sel_symbol}",
+        "date": today_kst,
+        "rsi": rsi,
+        "macd": macd,
+        "macdSignal": macd_signal,
+        "pattern": pattern,
+        "summary": summary,
+        "aiSummary": ai_summary_text,
+        "aiSummaryJson": ai_summary_json,
+        "premiumOnly": False,
+        "isDailyPick": True,
+        "chartData": df.to_dict(orient='records'),
+        "aiSummaryScores": ai_meta.get("ruleScores") if ai_meta else None,
+        "autoTriggers": ai_meta.get("autoTriggers") if ai_meta else None,
+        "promptVersion": ai_meta.get("promptVersion") if ai_meta else "v2",
+        "provider": ai_meta.get("provider") if ai_meta else None,
+        "modelName": ai_meta.get("modelName") if ai_meta else None,
+        "latencyMs": ai_meta.get("latencyMs") if ai_meta else None,
+        "validationErrors": ai_meta.get("validationErrors") if ai_meta else [],
+        "features": ai_meta.get("features") if ai_meta else None,
+        "backtest": ai_meta.get("backtest") if ai_meta else None,
+        "kTrigger": ai_meta.get("kTrigger") if ai_meta else None,
+        "btHorizonDays": ai_meta.get("btHorizonDays") if ai_meta else None,
+        "btTargetAtr": ai_meta.get("btTargetAtr") if ai_meta else None,
+        "viz": ai_meta.get("viz") if ai_meta else None,
+        "indicatorsLast": ai_meta.get("indicatorsLast") if ai_meta else None,
+        # 추가 저장 (고도화)
+        "vizPlus": ai_meta.get("vizPlus") if ai_meta else None,
+        "btTrades": ai_meta.get("btTrades") if ai_meta else None,
+        "equityCurve": ai_meta.get("equityCurve") if ai_meta else None,
+        "btStats": ai_meta.get("btStats") if ai_meta else None,
+        "levelsToday": ai_meta.get("levelsToday") if ai_meta else None,
+    }
+    db.collection("daily_analysis").document(doc_id).set(data)
+    print(f"✅ Firestore 저장 완료: {doc_id} (HOT1, symbol={sel_symbol})")
+except Exception as e:
+    print(f"[HOT1][ERROR] 처리 실패: {e}")
